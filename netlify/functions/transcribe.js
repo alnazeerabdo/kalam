@@ -44,7 +44,8 @@ exports.handler = async (event) => {
 
         // 5. Call Gemini
         const genAI = new GoogleGenerativeAI(apiKey);
-        const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
+        // Use specific version to avoid 404s on some endpoints
+        const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash-001" });
 
         const prompt = `Transcribe the following audio accurately. The language is likely ${language || 'ar-SA'}. Return ONLY the transcribed text, no explanations.`;
 
