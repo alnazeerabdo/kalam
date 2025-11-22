@@ -418,10 +418,16 @@
                     });
 
                     if (!response.ok) {
-                        if (response.status === 404) {
-                            throw new Error("Function Not Found (404)");
+                        let errorMessage = `Server Error: ${response.status}`;
+                        try {
+                            const errorData = await response.json();
+                            if (errorData.error) {
+                                errorMessage += `\nDetails: ${errorData.error}`;
+                            }
+                        } catch (e) {
+                            // Could not parse JSON error, stick to status
                         }
-                        throw new Error(`Server Error: ${response.status}`);
+                        throw new Error(errorMessage);
                     }
 
                     const data = await response.json();
@@ -436,7 +442,8 @@
                     if (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1' || window.location.protocol === 'file:') {
                         alert("⚠️ تنبيه للمطور:\n\nخدمة Gemini لا تعمل مباشرة من المتصفح (localhost/file).\nيجب تشغيل المشروع باستخدام Netlify CLI:\n\n> netlify dev\n\nأو رفع المشروع على Netlify.");
                     } else {
-                        alert("حدث خطأ في الاتصال بالخادم. يرجى المحاولة مرة أخرى.");
+                        // Show the ACTUAL error from the server (e.g. "Missing API Key")
+                        alert(`حدث خطأ في الاتصال بالخادم:\n${error.message}`);
                     }
                 } finally {
                     aiLoader.classList.add('hidden');
