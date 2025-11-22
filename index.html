@@ -1,0 +1,380 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>مُحول الصوت الذكي | AI Voice Scribe</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Font Awesome -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@300;400;600;700&display=swap" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Cairo', sans-serif;
+        }
+
+        .recording-pulse {
+            animation: pulse-red 1.5s infinite;
+        }
+
+        @keyframes pulse-red {
+            0% {
+                transform: scale(1);
+                box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.7);
+            }
+
+            70% {
+                transform: scale(1.1);
+                box-shadow: 0 0 0 10px rgba(239, 68, 68, 0);
+            }
+
+            100% {
+                transform: scale(1);
+                box-shadow: 0 0 0 0 rgba(239, 68, 68, 0);
+            }
+        }
+
+        /* Custom Toggle for Language */
+        .lang-btn.active {
+            background-color: #e0f2fe;
+            /* blue-100 */
+            color: #0284c7;
+            /* blue-600 */
+            border-color: #0284c7;
+            font-weight: bold;
+        }
+    </style>
+</head>
+
+<body class="bg-slate-50 text-slate-800 min-h-screen flex flex-col">
+
+    <!-- Navbar -->
+    <nav class="bg-white shadow-sm p-4 z-10">
+        <div class="max-w-3xl mx-auto flex justify-center items-center">
+            <div class="flex items-center gap-2">
+                <i class="fa-solid fa-microphone-lines text-blue-600 text-2xl"></i>
+                <h1 class="text-xl font-bold text-slate-700">كاتب صوتي <span
+                        class="text-xs bg-blue-100 text-blue-600 px-2 py-0.5 rounded-full">Netlify</span></h1>
+            </div>
+        </div>
+    </nav>
+
+    <!-- Main Content -->
+    <main class="flex-grow p-4 flex flex-col items-center max-w-3xl mx-auto w-full gap-6">
+
+        <!-- Mode Switcher (Fast vs Smart) -->
+        <div class="bg-slate-200 p-1 rounded-lg flex w-full max-w-xs mx-auto shadow-inner">
+            <button id="btnModeStandard" onclick="setMode('standard')"
+                class="flex-1 py-2 rounded-md text-sm font-semibold transition bg-white shadow text-blue-600">
+                سريع (مجاني)
+            </button>
+            <button id="btnModeAI" onclick="setMode('ai')"
+                class="flex-1 py-2 rounded-md text-sm font-semibold transition text-slate-500 hover:text-slate-700">
+                ذكي (Gemini)
+            </button>
+        </div>
+
+        <!-- Language Selector Label (Wrapped to hide/show easily) -->
+        <div id="langWrapper"
+            class="flex flex-col items-center gap-2 w-full max-w-xs transition-all duration-300 overflow-hidden"
+            style="max-height: 100px; opacity: 1;">
+            <p class="text-slate-500 text-sm font-medium">اختر لغة التحدث:</p>
+            <!-- Language Selector (Visible in Fast Mode) -->
+            <div id="languageControls" class="w-full flex justify-center gap-3">
+                <button onclick="setLanguage('ar-SA')" id="langAr"
+                    class="lang-btn active px-4 py-1 border border-slate-300 rounded-full text-sm text-slate-500 hover:bg-slate-50 transition">
+                    العربية 🇸🇦
+                </button>
+                <button onclick="setLanguage('en-US')" id="langEn"
+                    class="lang-btn px-4 py-1 border border-slate-300 rounded-full text-sm text-slate-500 hover:bg-slate-50 transition">
+                    English 🇺🇸
+                </button>
+            </div>
+        </div>
+
+        <!-- Status Text -->
+        <div id="statusText" class="text-slate-500 text-sm h-6 text-center font-medium">اضغط على الميكروفون للبدء</div>
+
+        <!-- Main Action Button -->
+        <div class="relative group">
+            <button id="recordBtn" onclick="toggleRecording()"
+                class="w-24 h-24 rounded-full bg-blue-600 text-white text-4xl shadow-xl hover:bg-blue-700 hover:scale-105 transition transform flex items-center justify-center">
+                <i class="fa-solid fa-microphone"></i>
+            </button>
+            <!-- Loading Spinner for AI Processing -->
+            <div id="aiLoader"
+                class="hidden absolute inset-0 bg-white/90 rounded-full flex items-center justify-center z-20">
+                <i class="fa-solid fa-circle-notch fa-spin text-blue-600 text-2xl"></i>
+            </div>
+        </div>
+
+        <!-- Output Area -->
+        <div class="w-full flex-grow flex flex-col relative">
+            <textarea id="outputText"
+                class="w-full h-64 p-5 text-lg leading-loose rounded-2xl border border-slate-300 focus:border-blue-500 focus:ring-2 focus:ring-blue-100 outline-none resize-none shadow-sm bg-white transition"
+                placeholder="النص سيظهر هنا..."></textarea>
+
+            <!-- Toolbar -->
+            <div class="absolute bottom-4 left-4 flex gap-2 ltr">
+                <button onclick="copyText()"
+                    class="bg-slate-100 hover:bg-blue-100 text-slate-600 hover:text-blue-600 p-2.5 rounded-xl transition tooltip shadow-sm"
+                    title="نسخ">
+                    <i class="fa-regular fa-copy"></i>
+                </button>
+                <button onclick="clearText()"
+                    class="bg-slate-100 hover:bg-red-100 text-slate-600 hover:text-red-600 p-2.5 rounded-xl transition shadow-sm"
+                    title="مسح">
+                    <i class="fa-solid fa-trash-can"></i>
+                </button>
+            </div>
+        </div>
+
+    </main>
+
+    <footer class="p-4 text-center text-slate-400 text-xs">
+        <p>Fast Mode: Web Speech API | Smart Mode: Serverless Gemini</p>
+    </footer>
+
+    <script>
+        // --- State Management ---
+        let currentMode = 'standard'; // 'standard' or 'ai'
+        let currentLang = 'ar-SA';    // 'ar-SA' or 'en-US'
+        let isRecording = false;
+        let recognition = null;
+        let mediaRecorder = null;
+        let audioChunks = [];
+
+        // --- DOM Elements ---
+        const recordBtn = document.getElementById('recordBtn');
+        const outputText = document.getElementById('outputText');
+        const statusText = document.getElementById('statusText');
+        const aiLoader = document.getElementById('aiLoader');
+        const langArBtn = document.getElementById('langAr');
+        const langEnBtn = document.getElementById('langEn');
+        const languageControls = document.getElementById('languageControls');
+
+        // --- Language Selection ---
+        function setLanguage(lang) {
+            currentLang = lang;
+            // Update UI classes
+            if (lang === 'ar-SA') {
+                langArBtn.classList.add('active');
+                langEnBtn.classList.remove('active');
+                outputText.setAttribute('dir', 'rtl');
+                outputText.placeholder = "النص سيظهر هنا...";
+            } else {
+                langEnBtn.classList.add('active');
+                langArBtn.classList.remove('active');
+                outputText.setAttribute('dir', 'ltr');
+                outputText.placeholder = "Text will appear here...";
+            }
+        }
+
+        // --- Mode Switching ---
+        function setMode(mode) {
+            currentMode = mode;
+            const btnStd = document.getElementById('btnModeStandard');
+            const btnAI = document.getElementById('btnModeAI');
+            const langWrapper = document.getElementById('langWrapper');
+
+            if (mode === 'standard') {
+                // UI Logic for Standard Mode
+                btnStd.className = 'flex-1 py-2 rounded-md text-sm font-semibold transition bg-white shadow text-blue-600';
+                btnAI.className = 'flex-1 py-2 rounded-md text-sm font-semibold transition text-slate-500 hover:text-slate-700';
+
+                recordBtn.classList.remove('bg-purple-600', 'hover:bg-purple-700');
+                recordBtn.classList.add('bg-blue-600', 'hover:bg-blue-700');
+
+                // SHOW Language Controls
+                langWrapper.style.maxHeight = "100px";
+                langWrapper.style.opacity = "1";
+                langWrapper.style.pointerEvents = "auto";
+
+                statusText.textContent = "اضغط على الميكروفون للبدء";
+            } else {
+                // UI Logic for AI Mode
+                btnAI.className = 'flex-1 py-2 rounded-md text-sm font-semibold transition bg-white shadow text-purple-600';
+                btnStd.className = 'flex-1 py-2 rounded-md text-sm font-semibold transition text-slate-500 hover:text-slate-700';
+
+                recordBtn.classList.remove('bg-blue-600', 'hover:bg-blue-700');
+                recordBtn.classList.add('bg-purple-600', 'hover:bg-purple-700');
+
+                // HIDE Language Controls (Gemini detects automatically)
+                langWrapper.style.maxHeight = "0px";
+                langWrapper.style.opacity = "0";
+                langWrapper.style.pointerEvents = "none";
+
+                statusText.textContent = "الذكاء الاصطناعي سيكتشف اللغة تلقائياً...";
+            }
+        }
+
+        // --- Recording Logic ---
+        function toggleRecording() {
+            if (!isRecording) {
+                startRecording();
+            } else {
+                stopRecording();
+            }
+        }
+
+        function startRecording() {
+            isRecording = true;
+            recordBtn.innerHTML = '<i class="fa-solid fa-stop"></i>';
+            recordBtn.classList.add('recording-pulse');
+
+            if (currentMode === 'standard') {
+                startWebSpeech();
+            } else {
+                startAIRecording();
+            }
+        }
+
+        function stopRecording() {
+            isRecording = false;
+            recordBtn.innerHTML = '<i class="fa-solid fa-microphone"></i>';
+            recordBtn.classList.remove('recording-pulse');
+
+            if (currentMode === 'standard') {
+                if (recognition) recognition.stop();
+                statusText.textContent = "تم التوقف";
+            } else {
+                stopAIRecording();
+            }
+        }
+
+        // --- 1. Standard Web Speech API Logic ---
+        function startWebSpeech() {
+            if (!('webkitSpeechRecognition' in window)) {
+                alert("متصفحك لا يدعم Web Speech API.");
+                return;
+            }
+
+            recognition = new webkitSpeechRecognition();
+            recognition.continuous = true;
+            recognition.interimResults = true;
+            recognition.lang = currentLang; // Use selected language
+
+            recognition.onstart = () => {
+                statusText.textContent = currentLang.startsWith('ar') ? "جاري الاستماع..." : "Listening...";
+            };
+
+            recognition.onresult = (event) => {
+                let interimTranscript = '';
+                for (let i = event.resultIndex; i < event.results.length; ++i) {
+                    if (event.results[i].isFinal) {
+                        outputText.value += event.results[i][0].transcript + ' ';
+                    } else {
+                        interimTranscript += event.results[i][0].transcript;
+                    }
+                }
+                statusText.textContent = currentLang.startsWith('ar') ? "جاري الكتابة..." : "Typing...";
+            };
+
+            recognition.onerror = (event) => {
+                console.error(event.error);
+                stopRecording();
+            };
+
+            recognition.start();
+        }
+
+        // --- 2. AI (Netlify) Recording Logic ---
+        async function startAIRecording() {
+            statusText.textContent = "جاري التسجيل...";
+            audioChunks = [];
+
+            try {
+                const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+                mediaRecorder = new MediaRecorder(stream);
+
+                mediaRecorder.ondataavailable = (event) => {
+                    audioChunks.push(event.data);
+                };
+
+                mediaRecorder.start();
+            } catch (err) {
+                console.error("Mic Error:", err);
+                alert("Error accessing microphone");
+                stopRecording();
+            }
+        }
+
+        function stopAIRecording() {
+            if (mediaRecorder && mediaRecorder.state !== 'inactive') {
+                mediaRecorder.stop();
+                mediaRecorder.onstop = async () => {
+                    statusText.textContent = "جاري الإرسال للمعالجة...";
+                    aiLoader.classList.remove('hidden');
+
+                    const audioBlob = new Blob(audioChunks, { type: 'audio/webm' });
+                    await sendToNetlify(audioBlob);
+
+                    mediaRecorder.stream.getTracks().forEach(track => track.stop());
+                };
+            }
+        }
+
+        // --- Netlify Function Call ---
+        async function sendToNetlify(audioBlob) {
+            // 1. Convert Blob to Base64
+            const reader = new FileReader();
+            reader.readAsDataURL(audioBlob);
+
+            reader.onloadend = async () => {
+                const base64Audio = reader.result.split(',')[1];
+
+                try {
+                    // Call the Netlify Function
+                    // NOTE: This path '/.netlify/functions/transcribe' works once deployed to Netlify
+                    const response = await fetch('/.netlify/functions/transcribe', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                            audio: base64Audio,
+                            language: currentLang // Pass the selected language to the backend
+                        })
+                    });
+
+                    if (!response.ok) {
+                        throw new Error(`Server error: ${response.status}`);
+                    }
+
+                    const data = await response.json();
+
+                    // Append text
+                    outputText.value += (outputText.value ? '\n' : '') + data.text;
+                    statusText.textContent = "تم التحويل بنجاح!";
+
+                } catch (error) {
+                    console.error('Netlify Function Error:', error);
+                    statusText.textContent = "خطأ في الاتصال";
+                    // Friendly error for testing locally
+                    if (window.location.hostname.includes('preview') || window.location.hostname.includes('localhost')) {
+                        alert("تنبيه: وضع الذكاء الاصطناعي يحتاج إلى رفع الكود على Netlify ليعمل. (The backend function is missing in this preview).");
+                    }
+                } finally {
+                    aiLoader.classList.add('hidden');
+                }
+            };
+        }
+
+        // --- Utils ---
+        function copyText() {
+            outputText.select();
+            document.execCommand('copy');
+            statusText.textContent = "تم النسخ";
+            setTimeout(() => statusText.textContent = "...", 2000);
+        }
+
+        function clearText() {
+            if (confirm("مسح النص؟")) {
+                outputText.value = "";
+            }
+        }
+
+    </script>
+</body>
+
+</html>
