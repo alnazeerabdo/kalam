@@ -298,7 +298,7 @@
             }
         }
 
-        // --- 1. Web Speech API ---
+        // --- 1. Web Speech API (Rebuild Strategy) ---
         function startWebSpeech() {
             if (!('webkitSpeechRecognition' in window)) {
                 alert("متصفحك لا يدعم Web Speech API.");
@@ -315,39 +315,47 @@
             recognition.interimResults = true;
             recognition.lang = currentLang;
 
+            // Capture the text BEFORE this session starts
+            let sessionBase = outputText.value;
+            if (sessionBase.length > 0 && !sessionBase.endsWith(' ') && !sessionBase.endsWith('\n')) {
+                sessionBase += ' ';
+            }
+
             recognition.onstart = () => {
                 updateStatus(currentLang.startsWith('ar') ? "جاري الاستماع..." : "Listening...", 'recording');
             };
 
             recognition.onresult = (event) => {
-                let interimTranscript = '';
-                let finalTranscript = '';
+                let currentSessionText = '';
 
-                for (let i = event.resultIndex; i < event.results.length; ++i) {
-                    if (event.results[i].isFinal) {
-                        finalTranscript += event.results[i][0].transcript;
-                    } else {
-                        interimTranscript += event.results[i][0].transcript;
-                    }
+                // Rebuild the text for THIS session from scratch (0 to length)
+                // This prevents duplication bugs common with += appending
+                for (let i = 0; i < event.results.length; ++i) {
+                    currentSessionText += event.results[i][0].transcript;
                 }
 
-                if (finalTranscript) {
-                    outputText.value += (outputText.value && !outputText.value.endsWith(' ') ? ' ' : '') + finalTranscript;
-                }
+                // Update the textarea: Base + Current Session
+                outputText.value = sessionBase + currentSessionText;
 
-                if (interimTranscript) {
-                    updateStatus(interimTranscript, 'recording');
+                // Show feedback in status bar (last chunk)
+                const lastResult = event.results[event.results.length - 1];
+                if (lastResult && !lastResult.isFinal) {
+                    updateStatus(lastResult[0].transcript, 'recording');
+                } else {
+                    updateStatus(currentLang.startsWith('ar') ? "جاري الاستماع..." : "Listening...", 'recording');
                 }
             };
 
             recognition.onerror = (event) => {
                 console.error("Speech Error:", event.error);
-                updateStatus("خطأ في الميكروفون", 'error');
+                if (event.error === 'no-speech') return;
+                updateStatus("خطأ في الميكروفون: " + event.error, 'error');
             };
 
             recognition.onend = () => {
                 if (isRecording && currentMode === 'standard') {
-                    try { recognition.start(); } catch (e) { }
+                    console.log("Restarting recognition session...");
+                    startWebSpeech(); // Recursive restart to capture new base
                 } else {
                     updateStatus("تم التوقف");
                 }
